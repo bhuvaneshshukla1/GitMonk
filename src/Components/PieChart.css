@@ -1,0 +1,19 @@
+.pie-chart-container {
+    width: 400px;
+    max-width: 400px; /* Adjust based on your needs */
+    margin: 0 auto; /* Center the container horizontally */
+
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Center items horizontally */
+    justify-content: center; /* Center items vertically */
+}
+
+.pie-chart-container canvas {
+    max-width: 100%; /* Adjust as needed */
+    max-height: 100%; /* Adjust as needed */
+}
+
+.pie-chart-heading-container {
+    margin-bottom: 10px; /* Adjust as needed for spacing */
+}
