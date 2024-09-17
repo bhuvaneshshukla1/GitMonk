@@ -210,16 +210,6 @@ def build_query(applied_filters):
 
     return filter_expression
 
-
-
-
-
-
-
-
-
-
-
 @app.route('/filterData', methods=['POST'])
 def filterData():
     requested_data = request.get_json()
@@ -270,14 +260,12 @@ def filterData():
 def createUser():
     requested_data = request.get_json()
     logger.info(requested_data.get('username'))
-    table = client.Table('users')
     item = {
         'username': requested_data.get('username'),
         'password': requested_data.get('password')
     }
     if create_user(item,client):
         return {"result": "success"}, 200
-
     return {"result": "failure"}, 500
 
 @app.route('/validUser', methods=['POST'])
@@ -286,7 +274,6 @@ def validUser():
     logger.info(requested_data.get('username'))
     query = Attr('username').eq(requested_data.get('username')) & Attr('password').eq(requested_data.get('password'))
     results = retrieve_filtered_records(query,client,'users')
-    print(results)
     if len(results) >= 1:
         return {"result": "success"}, 200
     return {"result": "invalid credentials"}, 200
