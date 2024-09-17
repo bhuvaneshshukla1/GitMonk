@@ -284,14 +284,11 @@ def createUser():
 def validUser():
     requested_data = request.get_json()
     logger.info(requested_data.get('username'))
-
     query = Attr('username').eq(requested_data.get('username')) & Attr('password').eq(requested_data.get('password'))
-
     results = retrieve_filtered_records(query,client,'users')
     print(results)
     if len(results) >= 1:
         return {"result": "success"}, 200
-
     return {"result": "invalid credentials"}, 200
 
 
