@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-react-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: my-react-app
+  template:
+    metadata:
+      labels:
+        app: my-react-app
+    spec:
+      containers:
+        - name: my-react-app
+          image: 381492288808.dkr.ecr.us-east-1.amazonaws.com/gitmonk/frontend:v5
+          ports:
+            - containerPort: 80
+          env:
+            - name: VITE_GIT_CLIENT_URL  # Environment variable to be used in the container
+              valueFrom:
+                configMapKeyRef:
+                  name: frontend-config  # Reference to the ConfigMap
+                  key: VITE_GIT_CLIENT_URL

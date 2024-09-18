@@ -11,6 +11,8 @@ const users = [
     }
 ];
 
+const GIT_CLIENT_URL = import.meta.env.VITE_GIT_CLIENT_URL || "http://127.0.0.1:5000";
+console.log(GIT_CLIENT_URL)
 function Login() {
     const[username, setUsername] = useState("");
     const[password,setPassword] = useState("");
@@ -23,7 +25,7 @@ function Login() {
         e.preventDefault();
         setError("")
         try {
-            const response = await axios.post('http://127.0.0.1:5000/createUser', { "username":username, "password":password });
+            const response = await axios.post(GIT_CLIENT_URL + '/createUser', { "username":username, "password":password });
             if (response.status === 200) {
                 if(response.data.result === "user already exists"){
                     setMessage("Already Signed Up!");
@@ -43,7 +45,7 @@ function Login() {
         e.preventDefault();
         setError("")
         try {
-            const response = await axios.post('http://127.0.0.1:5000/validUser', { "username":username, "password":password });
+            const response = await axios.post(GIT_CLIENT_URL + '/validUser', { "username":username, "password":password });
             if (response.status === 200 && response.data && response.data.result === 'success') {
                 navigate("/app", {state: {username}});
             }

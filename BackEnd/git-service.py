@@ -1,10 +1,9 @@
 import requests
+import json
 from flask import Flask, request, jsonify
 import logging
-#from google.cloud import firestore
-#import os
-from BackEnd.db_client import create_project, create_user, retrieve_filtered_records
-from BackEnd.utils import (
+from db_client import create_project, create_user, retrieve_filtered_records
+from utils import (
     map_github_response_to_repository,
     updatePullRequestStatusForProject,
     updateMergeableStateTrackerForProject,
@@ -19,39 +18,57 @@ from models import (
     PullRequestStatus
 )
 from flask_cors import CORS
-
-
-import boto3
 from boto3.dynamodb.conditions import Attr
+app = Flask(__name__)
+import boto3
+from botocore.exceptions import ClientError
 
 
+def get_secret():
+    secret_name = "github_token"
+    region_name = "us-east-1"
+    # Create a Secrets Manager client
+    session = boto3.session.Session()
+    boto_client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+    try:
+        get_secret_value_response = boto_client.get_secret_value(
+            SecretId=secret_name
+        )
+    except ClientError as e:
+        # For a list of exceptions thrown, see
+        # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+        raise e
+    secret = json.loads(get_secret_value_response['SecretString'])
+    return secret['github_token']
 
-#os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "datastore-access-key.json"
-#client = firestore.Client()
+github_token = get_secret()
+print(github_token)
 
-aws_access_key_id = 'AKIAVRUVWLUUJOBUWQ4S'
-aws_secret_access_key = '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'
+# os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "datastore-access-key.json"
+# client = firestore.Client()
+
+#aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
+#aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
 aws_region = 'us-east-1'
 
 client = boto3.resource('dynamodb',
-                                aws_access_key_id=aws_access_key_id,
-                                aws_secret_access_key=aws_secret_access_key,
-                                region_name=aws_region)
-app = Flask(__name__)
+                        #aws_access_key_id=aws_access_key_id,
+                        #aws_secret_access_key=aws_secret_access_key,
+                        region_name=aws_region)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-CORS(app, resources={r"/filterData": {"origins": "http://localhost:5173"},
-                     r"/createUser": {"origins": "http://localhost:5173"},
-                     r"/validUser": {"origins": "http://localhost:5173"}})
+CORS(app, resources={r"/filterData": {"origins": "http://ac7cf593349294ea2a773107664787f1-221083915.us-east-1.elb.amazonaws.com"},
+                     r"/createUser": {"origins": "http://ac7cf593349294ea2a773107664787f1-221083915.us-east-1.elb.amazonaws.com"},
+                     r"/validUser": {"origins": "http://ac7cf593349294ea2a773107664787f1-221083915.us-east-1.elb.amazonaws.com"}})
 
-# PROJECT_REPO_MAPPINGS = {'apache':['kafka'],'bhuvaneshshukla1':['mp2']}
 PROJECT_REPO_MAPPINGS = {'apache': ['kafka', 'jmeter'], 'bhuvaneshshukla1': ['mp2']}
-
-# USER_PROJECT_ROLE_MAPPINGS =  {'bhuvaneshshukla1': [{'project': 'apache','role': ['Manager']},{'project': 'bhuvaneshshukla1','role':['Developer','Manager','Reviewer']}]}
-USER_PROJECT_ROLE_MAPPINGS = {
-    'bhuvaneshshukla1': [{'project': 'bhuvaneshshukla1', 'role': ['Developer', 'Manager', 'Reviewer']},
-                         {'project': 'apache', 'role': ['Manager']}],
-    'bhuvi1996': [{'project': 'bhuvaneshshukla1', 'role': ['Developer', 'Manager', 'Reviewer']}]}
+@app.route('/')
+def home():
+    return jsonify({'message': 'API is working'}), 200
 
 
 @app.route('/runCronJob', methods=['POST'])
@@ -152,7 +169,7 @@ def fetch():
                 "pullRequestCount": 10
             }
             headers = {
-                'Authorization': 'Bearer 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',
+                'Authorization': f'Bearer {github_token}',
                 'Content-Type': 'application/json'
             }
             response = requests.post('https://api.github.com/graphql', headers=headers,
@@ -210,12 +227,13 @@ def build_query(applied_filters):
 
     return filter_expression
 
+
 @app.route('/filterData', methods=['POST'])
 def filterData():
     requested_data = request.get_json()
     applied_filters = constructFilterCriteria(requested_data)
     query = build_query(applied_filters)
-    pull_requests = retrieve_filtered_records(query,client,'pull-requests')
+    pull_requests = retrieve_filtered_records(query, client, 'pull-requests')
     average_turnaround_time_per_comment = 0
     pull_requests_status = PullRequestStatus()
     pull_requests_mergeable = MergeableState()
@@ -264,16 +282,17 @@ def createUser():
         'username': requested_data.get('username'),
         'password': requested_data.get('password')
     }
-    if create_user(item,client):
+    if create_user(item, client):
         return {"result": "success"}, 200
     return {"result": "failure"}, 500
+
 
 @app.route('/validUser', methods=['POST'])
 def validUser():
     requested_data = request.get_json()
     logger.info(requested_data.get('username'))
     query = Attr('username').eq(requested_data.get('username')) & Attr('password').eq(requested_data.get('password'))
-    results = retrieve_filtered_records(query,client,'users')
+    results = retrieve_filtered_records(query, client, 'users')
     if len(results) >= 1:
         return {"result": "success"}, 200
     return {"result": "invalid credentials"}, 200
